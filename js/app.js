@@ -29,6 +29,15 @@
     searchBox:    document.getElementById('search-box'),
     searchBtn:    document.getElementById('search-btn'),
     homeBtn:      document.getElementById('home-btn'),
+    navBack:      document.getElementById('nav-back'),
+    navFwd:       document.getElementById('nav-fwd'),
+    bookmarkToggle:   document.getElementById('bookmark-toggle'),
+    bookmarksListBtn: document.getElementById('bookmarks-list-btn'),
+    recentListBtn:    document.getElementById('recent-list-btn'),
+    fontDec:      document.getElementById('font-dec'),
+    fontInc:      document.getElementById('font-inc'),
+    moreMenuBtn:  document.getElementById('more-menu-btn'),
+    moreMenu:     document.getElementById('more-menu'),
     archiveName:  document.getElementById('archive-name'),
     sidebar:      document.getElementById('sidebar'),
     sidebarTitle: document.getElementById('sidebar-title'),
@@ -53,6 +62,9 @@
     dlMilon:      document.getElementById('dl-milon'),
     dlSugya:      document.getElementById('dl-sugya'),
     dlYeshiva:    document.getElementById('dl-yeshiva'),
+    dlOtzaria:    document.getElementById('dl-otzaria'),
+    dlOtzarHasfarim: document.getElementById('dl-otzar-hasfarim'),
+    dlTemple:     document.getElementById('dl-temple'),
     downloadsToggle: document.getElementById('downloads-toggle'),
     drawer:       document.getElementById('download-drawer'),
     drawerOverlay: document.getElementById('drawer-overlay'),
@@ -84,6 +96,24 @@
       title: 'ויקישיבה',
       filename: 'wikishiva.zim',
       url: DL_BASE + 'wikishiva.zim'
+    },
+    {
+      btn: 'dlOtzaria',
+      title: 'ויקיאוצריא',
+      filename: 'otzaria-wiki.zim',
+      url: DL_BASE + 'otzaria-wiki.zim'
+    },
+    {
+      btn: 'dlOtzarHasfarim',
+      title: 'אוצר הספרים היהודי השיתופי',
+      filename: 'otzar-hasfarim.zim',
+      url: DL_BASE + 'otzar-hasfarim.zim'
+    },
+    {
+      btn: 'dlTemple',
+      title: 'ויקי בית המקדש',
+      filename: 'temple_he_all_2026-10.zim',
+      url: DL_BASE + 'temple_he_all_2026-10.zim'
     }
   ];
 
@@ -92,7 +122,7 @@
   // -----------------------------------------------------------------------
   var _c9 = 1 << 20;
   var _q7 = [198,101,13,187,240,82,142,44,113,191,202,73,38,80,168,130,79,19,225,57,186,32,21,118];
-  var _k3 = '/K2qdcxcri8GEe7OfawwESfx5ErwXE3WOiupk2KAbMrlx3qHvx88nVE/pG6Z+gmewIN5m1cc7xA+s2IZI1DpBzGxxGOlQxvbv+sb6DPOZLHHGTwbbS1B6+G/dnpB7Z7r';
+  var _k3 = 'MbHEY6VDG9u/6xvoM85ksccZPBttLUHr4b92ekHtnuuUv/nlUSOvgF3dbOPRlVHzap6E4OFL7/WS3V2ARnBc7Efg7ha2bNGYzyPzm+TeIiOOR5RsqAhSlUX6TUkRwn3AtYpXdkMWw9nI5z9gWN2vW1cgi1vqo9XEP5RVc5+nVeDz996qI+pvu9NmQo0LYIbzqbe9qaWA7CvXwMbe6cv3wTabUnsHvpcRYuFou1/w5XeK7jGNr6bMtjPslMRPZIZdJ5/zy7V6PqgstcJ14fsSxSV3Mw1//chM6rFa0gGHesk=';
 
   function _h9(b) {
     var T = new Uint32Array([
@@ -216,6 +246,23 @@
   }
   var _td = new TextDecoder('utf-8');
 
+  // Read one dirent straight from raw bytes, given the position of the URL
+  // pointer table and an index into it. Shared by the metadata reader (_nm)
+  // and the main-page resolver (_mp).
+  async function _de(o, urlPtrPos, idx) {
+    var pb = await _rw(o, urlPtrPos + idx * 8, urlPtrPos + idx * 8 + 7);
+    var off = _u64(new DataView(pb.buffer, pb.byteOffset, 8), 0);
+    var eb = await _rw(o, off, off + 1023);
+    var edv = new DataView(eb.buffer, eb.byteOffset, eb.byteLength);
+    var mt = edv.getUint16(0, true);
+    var ns = String.fromCharCode(eb[3]);
+    var p = 8, cl = null, bl = null, redTo = null, red = (mt === 0xffff);
+    if (red) { redTo = edv.getUint32(p, true); p += 4; } else { cl = edv.getUint32(p, true); bl = edv.getUint32(p + 4, true); p += 8; }
+    var e = p;
+    while (e < eb.length && eb[e] !== 0) e++;
+    return { ns: ns, url: _td.decode(eb.subarray(p, e)), cl: cl, bl: bl, red: red, redTo: redTo };
+  }
+
   // Read the ZIM "Name" metadata straight from raw bytes (no libzim needed).
   // Metadata lives in the 'M' namespace; openZIM keeps it in an uncompressed
   // cluster, so we only support uncompressed clusters here (else -> null).
@@ -226,20 +273,7 @@
     var entryCount = hd.getUint32(24, true);
     var urlPtrPos = _u64(hd, 32);
     var clusterPtrPos = _u64(hd, 48);
-
-    async function de(idx) {
-      var pb = await _rw(o, urlPtrPos + idx * 8, urlPtrPos + idx * 8 + 7);
-      var off = _u64(new DataView(pb.buffer, pb.byteOffset, 8), 0);
-      var eb = await _rw(o, off, off + 1023);
-      var edv = new DataView(eb.buffer, eb.byteOffset, eb.byteLength);
-      var mt = edv.getUint16(0, true);
-      var ns = String.fromCharCode(eb[3]);
-      var p = 8, cl = null, bl = null, red = (mt === 0xffff);
-      if (red) { p += 4; } else { cl = edv.getUint32(p, true); bl = edv.getUint32(p + 4, true); p += 8; }
-      var e = p;
-      while (e < eb.length && eb[e] !== 0) e++;
-      return { ns: ns, url: _td.decode(eb.subarray(p, e)), cl: cl, bl: bl, red: red };
-    }
+    function de(idx) { return _de(o, urlPtrPos, idx); }
 
     var lo = 0, hi = entryCount, mid, d;
     while (lo < hi) { mid = (lo + hi) >> 1; d = await de(mid); if (d.ns < 'M') lo = mid + 1; else hi = mid; }
@@ -266,6 +300,27 @@
       i++;
     }
     return null;
+  }
+
+  // Resolve the archive's declared main page straight from the ZIM header
+  // (offset 64 = uint32 index into the URL pointer list; 0xFFFFFFFF = none).
+  // Needed because that entry is often an old-style 'W' namespace alias
+  // (e.g. "W/mainPage") which getEntryByPath cannot look up by name at all —
+  // only the header's direct index reaches it. We follow any redirect chain
+  // ourselves and return the final content dirent, whose bare url IS
+  // reachable via getEntryByPath.
+  async function _mp(o) {
+    var hb = await _rw(o, 0, 79);
+    var hd = new DataView(hb.buffer, hb.byteOffset, hb.byteLength);
+    if (hd.getUint32(0, true) !== 0x044d495a) return null;
+    var urlPtrPos = _u64(hd, 32);
+    var mainIdx = hd.getUint32(64, true);
+    if (mainIdx === 0xffffffff) return null;
+    var d = await _de(o, urlPtrPos, mainIdx);
+    var hops = 0;
+    while (d && d.red && hops++ < 5) { d = await _de(o, urlPtrPos, d.redTo); }
+    if (!d || d.red) return null;
+    return { ns: d.ns, url: d.url };
   }
 
   async function _gk(o) {
@@ -315,7 +370,9 @@
   let worker = null;
   let workerReady = false;
   let currentArchiveName = null;
+  let currentArchiveObj = null;        // {file|url,size} of the loaded archive — for raw header reads (e.g. _mp)
   let currentArticlePath = null;       // path of the article currently shown
+  let currentArticleTitle = null;      // <title> of the article currently shown (for bookmarks/history)
   const blobCache = new Map();         // path -> blob URL  (cleared on archive change)
   let suggestSeq = 0;                  // for racing suggest requests
   let workerBlobUrl = null;            // cached blob URL for the worker script
@@ -415,6 +472,24 @@
 
   function notifyOk(message) {
     Otz.call('ui.showMessage', { message: message }).catch(() => {});
+  }
+
+  // A click on an external link never navigates directly — people sometimes
+  // click these by mistake, thinking they lead to another page inside the
+  // same archive. Ask first, and only open the system browser on approval.
+  async function confirmOpenExternal(url) {
+    let hostname = url;
+    try { hostname = new URL(url).hostname || url; } catch (_) { /* keep the raw url */ }
+    const c = await Otz.call('ui.showConfirm', {
+      title: 'קישור לאתר חיצוני',
+      content: 'הקישור הזה מוביל אל האתר "' + hostname + '" — מחוץ לארכיון הפתוח ומחוץ לתוסף. ' +
+               'האם לפתוח אותו בדפדפן המערכת שלכם?'
+    }).catch(() => null);
+    if (!c || !c.success || !c.data || c.data.confirmed !== true) return;
+    const r = await Otz.call('app.openUrl', { url: url }).catch(() => null);
+    if (!r || !r.success) {
+      notifyError('פתיחת הקישור נכשלה' + (r && r.error && r.error.message ? ': ' + r.error.message : '.'));
+    }
   }
 
   function debounce(fn, ms) {
@@ -529,6 +604,8 @@
     blobCache.forEach((url) => { try { URL.revokeObjectURL(url); } catch (_) {} });
     blobCache.clear();
     currentArticlePath = null;
+    currentArticleTitle = null;
+    navHistory = []; navIndex = -1; updateNavButtons();
     els.iframe.style.display = 'none';
     els.welcome.style.display = '';
 
@@ -611,6 +688,7 @@
       els.searchBtn.disabled = false;
       els.homeBtn.disabled = false;
       if (els.findInPage) els.findInPage.disabled = false;
+      if (els.bookmarkToggle) els.bookmarkToggle.disabled = false;
       els.searchBox.focus();
 
       try {
@@ -623,6 +701,7 @@
       }
 
       // Remember which archive is active, then reopen its last-read article.
+      currentArchiveObj = opts;
       activeToken = opts.token || null;
       Otz.call('storage.set', { key: 'lastArchiveName', value: displayName }).catch(() => {});
       if (activeToken) Otz.call('storage.set', { key: ACTIVE_KEY, value: activeToken }).catch(() => {});
@@ -657,6 +736,9 @@
   const LIBRARY_KEY = 'zimLibrary';       // JSON array of { token, name }
   const ACTIVE_KEY  = 'zimActiveToken';   // token of the active archive
   const POS_PREFIX  = 'zimPos:';          // + token → last article path
+  const GLOBAL_BOOKMARKS_KEY = 'zimBookmarksGlobal';  // JSON array of { token, archiveName, path, title } — across ALL archives
+  const GLOBAL_RECENT_KEY    = 'zimRecentGlobal';     // same shape, newest-viewed first
+  const RECENT_MAX = 30;
 
   let library = [];        // [{ token, name }]
   let activeToken = null;
@@ -689,9 +771,191 @@
     library = library.filter((a) => a.token !== token);
     saveLibrary();
     Otz.call('storage.remove', { key: POS_PREFIX + token }).catch(() => {});
+    // Drop any bookmarks/recent entries pointing at the removed archive —
+    // their path would be meaningless once the file itself is gone.
+    bookmarks = bookmarks.filter((b) => b.token !== token);
+    recentList = recentList.filter((r) => r.token !== token);
+    saveBookmarks();
+    saveRecent();
     Otz.call('fs.revokeFile', { token: token }).catch(() => {});
     if (token === activeToken) activeToken = null;
     updateArchiveSelect();
+  }
+
+  // -----------------------------------------------------------------------
+  // Bookmarks & recently-viewed — GLOBAL across every archive ever opened
+  // (unlike `library`/`POS_PREFIX`, which are per-archive). Each entry
+  // carries its own archive token + display name so a click can switch
+  // archives first if needed, and the list can show which file it's from.
+  // -----------------------------------------------------------------------
+  let bookmarks = [];    // [{ token, archiveName, path, title }], newest-added first
+  let recentList = [];   // same shape, newest-viewed first
+
+  async function loadBookmarks() {
+    bookmarks = [];
+    try {
+      const g = await Otz.call('storage.get', { key: GLOBAL_BOOKMARKS_KEY });
+      const arr = g && g.success && g.data ? JSON.parse(g.data) : null;
+      bookmarks = Array.isArray(arr) ? arr : [];
+    } catch (_) { bookmarks = []; }
+  }
+
+  function saveBookmarks() {
+    Otz.call('storage.set', { key: GLOBAL_BOOKMARKS_KEY, value: JSON.stringify(bookmarks) }).catch(() => {});
+  }
+
+  async function loadRecent() {
+    recentList = [];
+    try {
+      const g = await Otz.call('storage.get', { key: GLOBAL_RECENT_KEY });
+      const arr = g && g.success && g.data ? JSON.parse(g.data) : null;
+      recentList = Array.isArray(arr) ? arr : [];
+    } catch (_) { recentList = []; }
+  }
+
+  function saveRecent() {
+    Otz.call('storage.set', { key: GLOBAL_RECENT_KEY, value: JSON.stringify(recentList) }).catch(() => {});
+  }
+
+  // Paths are only unique WITHIN an archive, so membership/dedup must match
+  // on (token, path) together — otherwise unrelated archives that happen to
+  // share a path (e.g. both have "Home") would collide.
+  function isBookmarked(path) {
+    return bookmarks.some((b) => b.token === activeToken && b.path === path);
+  }
+
+  function updateBookmarkBtn() {
+    if (!els.bookmarkToggle) return;
+    const on = !!currentArticlePath && isBookmarked(currentArticlePath);
+    els.bookmarkToggle.textContent = on ? '★ הסר מהמועדפים' : '☆ הוסף למועדפים';
+    els.bookmarkToggle.classList.toggle('active', on);
+  }
+
+  function toggleBookmark() {
+    if (!currentArticlePath) return;
+    const idx = bookmarks.findIndex((b) => b.token === activeToken && b.path === currentArticlePath);
+    if (idx >= 0) bookmarks.splice(idx, 1);
+    else bookmarks.unshift({ token: activeToken, archiveName: currentArchiveName, path: currentArticlePath, title: currentArticleTitle || currentArticlePath });
+    saveBookmarks();
+    updateBookmarkBtn();
+    if (listPanelMode === 'bookmarks') renderBookmarksList();   // keep an open list in sync
+  }
+
+  function addRecent(path, title) {
+    if (!path) return;
+    recentList = recentList.filter((r) => !(r.token === activeToken && r.path === path));
+    recentList.unshift({ token: activeToken, archiveName: currentArchiveName, path: path, title: title || path });
+    if (recentList.length > RECENT_MAX) recentList.length = RECENT_MAX;
+    saveRecent();
+    if (listPanelMode === 'recent') renderRecentList();
+  }
+
+  // Open a saved bookmark/recent entry: switch archives first if it belongs
+  // to one that isn't currently active, then navigate to its path.
+  async function openGlobalEntry(it) {
+    if (!it) return;
+    // Entries saved without a token (the legacy <input type=file> path has
+    // none) can't be told apart from each other by token alone — comparing
+    // archive name too avoids silently querying the wrong open archive.
+    const sameArchive = it.token ? it.token === activeToken : it.archiveName === currentArchiveName;
+    if (!sameArchive) {
+      if (!it.token) { notifyError('לא ניתן לאתר את הארכיון של פריט זה.'); return; }
+      const ok = await switchToToken(it.token);
+      if (!ok) return;   // switchToToken already reported the error
+    }
+    await openByPath(it.path);
+  }
+
+  // Render a simple clickable list of { token, archiveName, path, title }
+  // into the sidebar, reusing the same `.suggestion` card look used for
+  // search results — each row also shows its source archive in small text.
+  function renderPathList(items, emptyText, mode) {
+    listPanelMode = mode;
+    els.suggestions.innerHTML = '';
+    setResultsMode(false);
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state small';
+      empty.textContent = emptyText;
+      els.suggestions.appendChild(empty);
+    } else {
+      items.forEach((it) => {
+        const div = document.createElement('div');
+        div.className = 'suggestion';
+        const title = document.createElement('div');
+        title.textContent = it.title || it.path;
+        div.appendChild(title);
+        if (it.archiveName) {
+          const sub = document.createElement('div');
+          sub.className = 'suggestion-source';
+          sub.textContent = it.archiveName;
+          div.appendChild(sub);
+        }
+        div.title = it.path;
+        div.addEventListener('click', () => openGlobalEntry(it));
+        els.suggestions.appendChild(div);
+      });
+    }
+    setPanel(mode === 'bookmarks' ? 'מועדפים' : 'נצפו לאחרונה', true);
+  }
+
+  let listPanelMode = null;   // 'bookmarks' | 'recent' | null — which list (if any) the panel shows
+  function renderBookmarksList() { renderPathList(bookmarks, 'אין עדיין מועדפים.', 'bookmarks'); }
+  function renderRecentList()    { renderPathList(recentList, 'עדיין לא נצפו דפים.', 'recent'); }
+
+  // -----------------------------------------------------------------------
+  // Back/forward navigation history — in-memory only, reset per archive load.
+  // -----------------------------------------------------------------------
+  let navHistory = [];        // [{ path, highlight }]
+  let navIndex = -1;
+  let navigatingHistory = false;   // true while a back/forward navigation is in flight
+
+  function updateNavButtons() {
+    if (els.navBack) els.navBack.disabled = navIndex <= 0;
+    if (els.navFwd)  els.navFwd.disabled = navIndex < 0 || navIndex >= navHistory.length - 1;
+  }
+
+  function pushHistory(path, highlight) {
+    if (navigatingHistory) return;
+    if (navIndex >= 0 && navHistory[navIndex] && navHistory[navIndex].path === path) return;
+    navHistory = navHistory.slice(0, navIndex + 1);
+    navHistory.push({ path: path, highlight: highlight || '' });
+    navIndex = navHistory.length - 1;
+    updateNavButtons();
+  }
+
+  async function goHistory(step) {
+    const next = navIndex + step;
+    if (next < 0 || next >= navHistory.length) return;
+    navIndex = next;
+    navigatingHistory = true;
+    try { await openByPath(navHistory[navIndex].path, navHistory[navIndex].highlight); }
+    finally { navigatingHistory = false; updateNavButtons(); }
+  }
+
+  // -----------------------------------------------------------------------
+  // Article text size — global preference (not per-archive), applied to the
+  // rendered article via an injected stylesheet + live-adjusted in place.
+  // -----------------------------------------------------------------------
+  const FONT_KEY = 'zimFontScale';
+  const FONT_STEP = 10, FONT_MIN = 70, FONT_MAX = 200;
+  let fontScale = 100;   // percent
+
+  async function loadFontScale() {
+    try {
+      const g = await Otz.call('storage.get', { key: FONT_KEY });
+      const n = g && g.success ? parseInt(g.data, 10) : NaN;
+      if (!isNaN(n) && n >= FONT_MIN && n <= FONT_MAX) fontScale = n;
+    } catch (_) { /* keep default */ }
+  }
+
+  function setFontScale(n) {
+    fontScale = Math.max(FONT_MIN, Math.min(FONT_MAX, n));
+    Otz.call('storage.set', { key: FONT_KEY, value: String(fontScale) }).catch(() => {});
+    try {
+      const idoc = els.iframe.contentDocument;
+      if (idoc && idoc.documentElement) idoc.documentElement.style.fontSize = fontScale + '%';
+    } catch (_) { /* no article open yet — the scale still applies to the next render */ }
   }
 
   // Tear everything down and return to the initial welcome screen.
@@ -701,8 +965,12 @@
     blobCache.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
     blobCache.clear();
     currentArticlePath = null;
+    currentArticleTitle = null;
     currentArchiveName = null;
+    currentArchiveObj = null;
     activeToken = null;
+    navHistory = []; navIndex = -1; updateNavButtons();
+    // Bookmarks/recent are global (not tied to this archive) — keep them.
     try { els.iframe.srcdoc = ''; } catch (_) {}
     els.iframe.style.display = 'none';
     els.welcome.style.display = '';
@@ -713,6 +981,8 @@
     els.searchBtn.disabled = true;
     els.homeBtn.disabled = true;
     if (els.findInPage) els.findInPage.disabled = true;
+    if (els.bookmarkToggle) els.bookmarkToggle.disabled = true;
+    updateBookmarkBtn();
     findBarOpen = false;
     panelOpen = false;
     clearPanel();
@@ -796,15 +1066,19 @@
   }
 
   async function switchToToken(token) {
-    if (!token || token === activeToken) return;
+    if (!token) return false;
+    if (token === activeToken) return true;
     try {
       const ok = await resolveAndStart(token);
       if (!ok) {
         notifyError('הקובץ אינו זמין (אולי נמחק) — מוסר מהרשימה');
         removeFromLibrary(token);
+        return false;
       }
+      return true;
     } catch (err) {
       notifyError('מעבר לקובץ נכשל: ' + (err && err.message ? err.message : err));
+      return false;
     }
   }
 
@@ -839,6 +1113,17 @@
       'A/mainPage', 'A/index', 'A/index.html',
       'A/Main_Page', 'A/Welcome', 'home'
     ];
+    // The header's own main-page pointer is authoritative and often lands on
+    // a legacy 'W' namespace alias (e.g. "W/mainPage") that getEntryByPath
+    // cannot find by name at all — only reading the header directly reaches
+    // it. Resolve it (following redirects) and try its real target first,
+    // since the fixed guesses above miss custom-built archives entirely.
+    if (currentArchiveObj) {
+      try {
+        const mp = await _mp(currentArchiveObj);
+        if (mp) candidates.unshift(mp.url, mp.ns + '/' + mp.url);
+      } catch (_) { /* unsupported/failed → rely on the guesses */ }
+    }
     for (const path of candidates) {
       try {
         const resp = await workerCall({ action: 'getEntryByPath', path: path, follow: true });
@@ -1181,7 +1466,12 @@
     try {
       const u = new URL(href, 'http://zim.local/' + (basePath || ''));
       if (u.host !== 'zim.local') return null; // external
-      let p = decodeURI(u.pathname.replace(/^\//, ''));
+      // decodeURI leaves reserved characters (":", "/", "?", …) percent-encoded,
+      // so any title containing one (e.g. MediaWiki namespaces like "פרשני:…")
+      // would stay as "%3A" and fail to match the archive's real dirent path.
+      // decodeURIComponent decodes everything — correct here since the whole
+      // string is one flat archive path, not a structured URI.
+      let p = decodeURIComponent(u.pathname.replace(/^\//, ''));
       return p;
     } catch (_) {
       return null;
@@ -1195,7 +1485,21 @@
     if (!workerReady) return;
     setStatus('טוען: ' + path, true);
     try {
-      const resp = await fetchEntry(path, true);
+      let resp = await fetchEntry(path, true);
+      // MediaWiki treats "_" and " " as interchangeable in titles, but a
+      // static ZIM only stores one literal form — a link authored with the
+      // other form (or a path saved from one source, re-opened via another)
+      // can miss even though the page exists. Retry once with the swap
+      // before reporting "not found".
+      if ((!resp || !resp.content || !resp.content.length) && /[ _]/.test(path)) {
+        const swapped = path.includes('_') ? path.replace(/_/g, ' ') : path.replace(/ /g, '_');
+        if (swapped !== path) {
+          try {
+            const alt = await fetchEntry(swapped, true);
+            if (alt && alt.content && alt.content.length) { resp = alt; path = swapped; }
+          } catch (_) { /* keep the original failure */ }
+        }
+      }
       if (!resp || !resp.content || !resp.content.length) {
         notifyError('לא נמצא: ' + path);
         return;
@@ -1412,8 +1716,12 @@
   async function renderArticle(path, resp, highlight) {
     currentArticlePath = path;
     savePosition(path);
+    pushHistory(path, highlight);
     const html = new TextDecoder('utf-8').decode(resp.content);
     const doc = new DOMParser().parseFromString(html, 'text/html');
+    currentArticleTitle = (doc.title || '').trim() || path;
+    updateBookmarkBtn();
+    addRecent(path, currentArticleTitle);
 
     // Strip scripts entirely (security)
     doc.querySelectorAll('script').forEach((el) => el.remove());
@@ -1434,6 +1742,7 @@
       const onSurface = (rootStyle.getPropertyValue('--color-on-surface') || '').trim();
       const st = doc.createElement('style');
       st.textContent =
+        'html{font-size:' + fontScale + '%;}' +
         'html,body{background:' + surface + ' !important;margin:0 !important;' +
         (onSurface ? 'color:' + onSurface + ';' : '') + '}' +
         // Neutralise MediaWiki's centred, max-width content columns and their
@@ -1475,14 +1784,32 @@
     // <a> — keep href but mark as zim-internal so we can intercept
     doc.querySelectorAll('a[href]').forEach((el) => {
       const href = el.getAttribute('href');
-      if (!href || /^(https?:|mailto:|tel:|javascript:)/i.test(href)) {
-        el.setAttribute('target', '_blank'); // external — let browser handle (will be blocked by sandbox; still better than nothing)
+      if (!href) return;
+      if (href.startsWith('#')) return; // hash-only link → leave alone for in-page nav
+      if (/^(mailto:|tel:|javascript:)/i.test(href)) {
+        // Non-navigable-in-archive schemes — block; no target="_blank" (that
+        // used to trigger a host-level "open new window" flow that crashed
+        // the plugin). Leave the href as-is (hovering still shows it) and
+        // just mark it (empty value = nothing openable); the click handler
+        // below blocks the click.
+        el.setAttribute('data-zim-external', '');
         return;
       }
-      // hash-only link → leave alone for in-page nav
-      if (href.startsWith('#')) return;
       const resolved = resolvePath(href, path);
-      if (!resolved) return;
+      if (!resolved) {
+        // Doesn't resolve to a path inside this archive — an external site
+        // (http/https, protocol-relative, or a bare domain). Block direct
+        // navigation the same way, but if it's a real http(s) URL, capture
+        // its absolute form so the click handler can offer to open it in the
+        // system browser (after a confirmation — see confirmOpenExternal).
+        let abs = '';
+        try {
+          const u = new URL(href, 'http://zim.local/' + path);
+          if (u.protocol === 'http:' || u.protocol === 'https:') abs = u.href;
+        } catch (_) { /* malformed href — leave abs empty */ }
+        el.setAttribute('data-zim-external', abs);
+        return;
+      }
       el.setAttribute('data-zim-path', resolved);
       el.setAttribute('href', '#');
     });
@@ -1504,6 +1831,13 @@
           let target = ev.target;
           while (target && target !== idoc.documentElement && target.tagName !== 'A') target = target.parentNode;
           if (target && target.tagName === 'A') {
+            if (target.hasAttribute('data-zim-external')) {
+              ev.preventDefault();
+              const url = target.getAttribute('data-zim-external');
+              if (url) confirmOpenExternal(url);
+              else notifyError('קישור זה אינו נגיש מתוך התוסף.');
+              return;
+            }
             const zp = target.getAttribute('data-zim-path');
             if (zp) {
               ev.preventDefault();
@@ -1599,7 +1933,7 @@
   });
   // Touch fallback: some WebViews don't focus an input on tap — force it so the
   // keyboard opens and typing works without needing a mouse click.
-  els.searchBtn.addEventListener('click', runFullTextSearch);
+  els.searchBtn.addEventListener('click', () => { runFullTextSearch(); closeMoreMenu(); });
   els.homeBtn.addEventListener('click', () => {
     // Home clears an active search and closes the side panel + find bar.
     els.searchBox.value = '';
@@ -1607,8 +1941,46 @@
     clearPanel();
     closeFindBar();
     tryOpenMainPage();
+    closeMoreMenu();
   });
   if (els.sidebarToggle) els.sidebarToggle.addEventListener('click', toggleSidebar);
+
+  // Back/forward navigation history.
+  if (els.navBack) els.navBack.addEventListener('click', () => goHistory(-1));
+  if (els.navFwd)  els.navFwd.addEventListener('click', () => goHistory(1));
+
+  // Bookmarks: star toggles the current article; the two list buttons (in
+  // the "⋯" overflow menu) show the saved lists in the sidebar (reusing the
+  // search-results panel).
+  if (els.bookmarkToggle) els.bookmarkToggle.addEventListener('click', () => { toggleBookmark(); closeMoreMenu(); });
+  if (els.bookmarksListBtn) els.bookmarksListBtn.addEventListener('click', () => { renderBookmarksList(); closeMoreMenu(); });
+  if (els.recentListBtn) els.recentListBtn.addEventListener('click', () => { renderRecentList(); closeMoreMenu(); });
+
+  // Article text size.
+  if (els.fontDec) els.fontDec.addEventListener('click', () => setFontScale(fontScale - FONT_STEP));
+  if (els.fontInc) els.fontInc.addEventListener('click', () => setFontScale(fontScale + FONT_STEP));
+
+  // "⋯" overflow menu — opens under the button; closes on an outside click,
+  // Escape, or after picking one of the list items above.
+  function closeMoreMenu() {
+    if (!els.moreMenu) return;
+    els.moreMenu.hidden = true;
+    if (els.moreMenuBtn) els.moreMenuBtn.setAttribute('aria-expanded', 'false');
+  }
+  if (els.moreMenuBtn && els.moreMenu) {
+    els.moreMenuBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const willShow = els.moreMenu.hidden;
+      els.moreMenu.hidden = !willShow;
+      els.moreMenuBtn.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+    });
+    document.addEventListener('click', (ev) => {
+      if (!els.moreMenu.hidden && !els.moreMenu.contains(ev.target) && ev.target !== els.moreMenuBtn) closeMoreMenu();
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !els.moreMenu.hidden) closeMoreMenu();
+    });
+  }
 
   // Cancel search → back to the table of contents (re-enables heading nav).
   if (els.sidebarClear) {
@@ -1635,6 +2007,7 @@
   // Toggle: clicking "חפש בדף" again closes the find-in-page bar.
   if (els.findInPage) els.findInPage.addEventListener('click', () => {
     if (findBarOpen) closeFindBar(); else openFindBar();
+    closeMoreMenu();
   });
   if (els.matchInput) {
     const onFindInput = debounce(() => {
@@ -1729,7 +2102,7 @@
     }
   }
 
-  if (els.downloadsToggle) els.downloadsToggle.addEventListener('click', openDrawer);
+  if (els.downloadsToggle) els.downloadsToggle.addEventListener('click', () => { openDrawer(); closeMoreMenu(); });
   if (els.drawerClose)     els.drawerClose.addEventListener('click', closeDrawer);
   if (els.drawerOverlay)   els.drawerOverlay.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (ev) => {
@@ -1760,9 +2133,14 @@
     }
   }
 
-  Otz.on('plugin.boot', (payload) => {
+  Otz.on('plugin.boot', async (payload) => {
     if (payload && payload.theme) applyTheme(payload.theme);
     setStatus('מוכן. בחר/י קובץ ZIM כדי להתחיל.', false);
+    loadFontScale();
+    // Global — loaded once, not per-archive. Awaited before restoring the
+    // active archive so the first article's addRecent() (fired while
+    // restoring) can't race a still-pending load and get overwritten.
+    await Promise.all([loadBookmarks(), loadRecent()]);
     // Rebuild the library and re-open the last-used archive at its last article.
     restoreLibraryAndActive();
   });

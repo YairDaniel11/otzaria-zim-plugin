@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "id": "com.otzaria.zim-reader",
   "name": "קורא ZIM",
-  "version": "0.5.2",
+  "version": "0.6.1",
   "description": "קורא קבצי ZIM (Kiwix) לאוצריא — טעינה מהירה, ריבוי ארכיונים, חיפוש חכם בעברית וניווט. מבוסס libzim.",
-  "author": "האדם החושב · rework: YairDaniel11",
+  "author": "האדם החושב · rework: יאיר דניאל",
   "homepage": "https://github.com/zevisvei/otzaria-zim-plugin",
   "stability": "experimental",
   "entrypoint": "index.html",
-  "minAppVersion": "0.9.94",
+  "minAppVersion": "0.9.95",
   "sdkVersion": "1.x",
   "permissions": [
     "ui.feedback",
@@ -16,6 +16,7 @@
     "plugin.storage.write",
     "fs.user_files.read",
     "network.access",
+    "app.open_url",
     "events.subscribe:theme.changed"
   ],
   "network": {
@@ -24,7 +25,9 @@
       "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/milon-klei-kodesh.zim",
       "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/wikisugya.zim",
       "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/wikishiva.zim",
-      "https://objects.githubusercontent.com/"
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/otzaria-wiki.zim",
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/otzar-hasfarim.zim",
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/temple_he_all_2026-10.zim"
     ]
   },
   "contributes": {
