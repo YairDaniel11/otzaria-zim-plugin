@@ -60,6 +60,7 @@ body {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   height: 100vh;
+  height: 100dvh;
   position: relative;
 }
 
@@ -589,4 +590,52 @@ footer.status {
   opacity: 0.85;
   font-weight: 400;
   direction: ltr;
+}
+
+/* ===================== Android / small-screen adaptation ===================== */
+html, body { max-width: 100%; overflow-x: hidden; }
+@supports (padding: env(safe-area-inset-top)) {
+  header { padding-top: calc(8px + env(safe-area-inset-top)); padding-inline: calc(14px + env(safe-area-inset-left)) calc(14px + env(safe-area-inset-right)); }
+  footer.status { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+}
+.dropdown-menu { max-width: calc(100vw - 16px); }
+.dropdown-menu { max-height: 70dvh; overflow-y: auto; }
+
+@media (max-width: 600px) {
+  header .title { font-size: 1.15rem; }
+  .toolbar { padding: 8px 10px; gap: 6px; }
+  .toolbar input[type="search"],
+  .toolbar input[type="search"].search-box-lg { min-width: 0; flex: 1 1 100%; order: -1; padding: 11px 18px; }
+  .archive-select { max-width: 100%; flex: 1 1 120px; min-width: 0; }
+  .match-nav { inset-inline: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .match-nav .match-input { width: auto; flex: 1; min-width: 0; }
+  .empty-state { padding: 20px; }
+  .download-drawer { width: 320px; max-width: 90vw; }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  header { padding-block: 4px; }
+  .toolbar { padding-block: 6px; }
+  #toc-list { max-height: 30dvh; }
+}
+
+/* Touch devices: 44px targets, 16px+ inputs (prevents focus zoom), tap alternatives */
+@media (pointer: coarse) {
+  button, .btn, .archive-select, .suggestion, .toc-item, .toc-subhead, .dropdown-item, .drawer-dl-btn, .sidebar-mini {
+    min-height: 44px;
+  }
+  .icon-btn, .drawer-close { min-width: 44px; }
+  .sidebar-mini { padding: 8px 14px; }
+  .match-nav button { width: 44px; height: 44px; min-height: 44px; }
+  .toolbar input[type="search"], .toolbar input[type="search"].search-box-lg,
+  .match-nav .match-input, .archive-select, input, select, textarea { font-size: 16px; min-height: 44px; }
+  .toc-item { display: flex; align-items: center; }
+  .dropdown-row .icon-btn { padding: 8px 12px; }
+}
+@media (hover: none) {
+  button:hover, .btn:hover { filter: none; }
+  .suggestion:hover, .toc-item:hover { background: inherit; border-color: var(--color-outline); color: inherit; }
+  .toc-item:hover { background: transparent; border-inline-start-color: transparent; }
+  .suggestion:active, .toc-item:active, .dropdown-item:active { background: var(--color-primary-subtle); }
+  button.secondary:hover { background: transparent; }
 }
